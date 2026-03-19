@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Rima | 🫰 My Moon</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Playfair+Display:ital,wght@1,900&family=Montserrat:wght@100;300;900&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        :root { --gold: #fde047; --rose: #f43f5e; --black: #000000; }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+        body, html { width: 100%; height: 100%; background: var(--black); color: white; font-family: 'Montserrat', sans-serif; overflow: hidden; touch-action: none; }
+        #webgl-canvas { position: fixed; inset: 0; z-index: 1; }
+        
+        /* Initial Overlay to Unlock Audio */
+        #start-overlay {
+            position: fixed; inset: 0; background: var(--black); z-index: 2000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; transition: opacity 0.8s ease;
+        }
+
+        #music-btn {
+            position: fixed; top: 25px; right: 25px; z-index: 1000;
+            background: rgba(255,255,255,0.05); border: 1.5px solid var(--gold);
+            color: var(--gold); border-radius: 50%; width: 45px; height: 45px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; backdrop-filter: blur(15px); font-size: 20px;
+        }
+
+        .limelight {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 80vw; height: 80vw; border-radius: 50%;
+            background: radial-gradient(circle, rgba(244, 63, 94, 0.2) 0%, transparent 70%);
+            z-index: 2; pointer-events: none; filter: blur(40px);
+        }
+
+        #viewport { position: relative; z-index: 10; width: 100%; height: 100%; opacity: 0; }
+        .section {
+            position: absolute; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            text-align: center; opacity: 0; pointer-events: none; visibility: hidden;
+        }
+        .section-active { opacity: 1; pointer-events: auto; visibility: visible; }
+
+        .hero-text {
+            font-family: 'Playfair Display', serif; font-size: clamp(2.5rem, 12vw, 8rem);
+            font-style: italic; color: var(--gold); line-height: 1.1; z-index: 15;
+        }
+        .sub-text {
+            font-family: 'Dancing Script', cursive; font-size: clamp(1.8rem, 5vw, 3rem);
+            margin-top: 20px; color: #fff; z-index: 15; max-width: 85%;
+        }
+
+        #nav-ring {
+            position: fixed; bottom: 8%; left: 50%; transform: translateX(-50%);
+            z-index: 100; cursor: pointer; display: flex; flex-direction: column; align-items: center;
+        }
+        .pulse-heart-svg { width: 70px; height: 70px; fill: var(--rose); filter: drop-shadow(0 0 15px var(--rose)); animation: beat 1.2s infinite; }
+        @keyframes beat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2); } }
+
+        .liquid-portal {
+            width: 250px; height: 250px; border-radius: 50%; border: 2px solid var(--gold);
+            position: relative; overflow: hidden; background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px); display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .fill-wave { position: absolute; bottom: 0; width: 100%; height: 0%; background: linear-gradient(0deg, var(--rose), var(--gold)); }
+        
+        .tap-emoji { position: fixed; pointer-events: none; z-index: 1000; animation: floatUp 1.2s forwards; color: var(--gold); }
+        @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-120px) scale(1.8); } }
+    </style>
+</head>
+<body onmousemove="spawnTrail(event)" ontouchmove="spawnTrail(event.touches[0])">
+
+    <div id="start-overlay" onclick="startExperience()">
+        <svg class="pulse-heart-svg" viewBox="0 0 24 24" style="width: 100px; height: 100px;"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        <p style="color: var(--gold); letter-spacing: 0.5em; margin-top: 20px; font-weight: 900; font-size: 12px;">CLICK TO OPEN 🫰</p>
+    </div>
+
+    <audio id="bg-music" loop preload="auto">
+        <source src="song.mp3" type="audio/mpeg">
+    </audio>
+
+    <div id="music-btn" onclick="toggleMusic()">🔊</div>
+
+    <div class="limelight"></div>
+    <canvas id="webgl-canvas"></canvas>
+
+    <div id="nav-ring" onclick="advanceUniverse()">
+        <svg class="pulse-heart-svg" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        <span id="nav-text" style="font-size: 10px; letter-spacing: 0.4em; margin-top: 15px; color: var(--gold); font-weight: 900; text-transform: uppercase;">TOUCH MY HEART 🫰</span>
+    </div>
+
+    <div id="viewport">
+        <section id="p1" class="section section-active">
+            <h1 class="hero-text">Adorer<br>Rima 🫰</h1>
+            <p class="sub-text">Tomar hashi tai amar eid-er khushi...🌸️</p>
+        </section>
+
+        <section id="p2" class="section">
+            <h1 class="hero-text">Those<br>Eyes 👁️</h1>
+            <p class="sub-text">Duniya-r baki shob alo eka dike,<br>Ar tomar chokh-er alo onno dike. ✨</p>
+        </section>
+
+        <section id="p3" class="section">
+            <h1 class="hero-text">Pretty<br>Hands 🫰</h1>
+            <p class="sub-text">Tomar hat-er mehendi-r rong e jeno<br>pure Eid-er shundorjyo... 🤝💓</p>
+        </section>
+
+        <section id="p4" class="section">
+            <h1 class="hero-text">My Personal<br>Moon 🌙</h1>
+            <p class="sub-text">Akash-er chand shobai dekhte pare,<br>Kintu amar chand-ke khali ami-i dekhi. ❤️‍🔥</p>
+        </section>
+
+        <section id="p5" class="section">
+            <h1 class="hero-text">Eid Night<br>With You ✨</h1>
+            <p class="sub-text">Chand dube geleo amar bishwash,<br>Tomar shundorjyo kokhono mlan hobe na. 🕯️🌙</p>
+        </section>
+
+        <section id="p6" class="section">
+            <p class="sub-text">
+                "Eid er notun dress shobai pore…<br>
+                Tumi jeita poro, oitai shundor hoye jai 🔥"
+            </p>
+            <h2 class="hero-text" style="font-size: 2.5rem; margin-top: 20px;">Eid Mubarak My Moon 🌙🫰</h2>
+        </section>
+
+        <section id="p7" class="section">
+            <div class="liquid-portal" id="portal">
+                <div class="fill-wave" id="wave"></div>
+                <div class="portal-main-emoji">🫰</div>
+                <div class="portal-label">KOCHU</div>
+            </div>
+            <p style="margin-top: 30px; font-size: 11px; letter-spacing: 0.5em; color: var(--gold); font-weight: 900;">HOLD TO SEE YOUR SHINE 🌙</p>
+        </section>
+
+        <section id="p8" class="section">
+            <h1 class="hero-text" style="font-size: clamp(4rem, 20vw, 15rem);">Rima 🫰</h1>
+            <p class="sub-text" style="color: var(--rose);">Eid Mubarak! Tumi thaklei protiti din Eid...🥺🫶🏻💞</p>
+            <div style="margin-top: 50px;">
+                <p style="letter-spacing: 0.8em; font-size: 12px; color: var(--gold); font-weight: 900;">LOVE YOU FOREVER 🫰 2026</p>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const audio = document.getElementById('bg-music');
+        const startOverlay = document.getElementById('start-overlay');
+        const viewport = document.getElementById('viewport');
+
+        function startExperience() {
+            // Unlocks and plays music instantly on the first click
+            audio.play().catch(e => console.log("Audio waiting..."));
+            audio.volume = 0;
+            gsap.to(audio, {volume: 0.6, duration: 4});
+
+            // Hide overlay and show content
+            startOverlay.style.opacity = '0';
+            setTimeout(() => {
+                startOverlay.style.display = 'none';
+                gsap.to(viewport, {opacity: 1, duration: 1.5});
+            }, 800);
+        }
+
+        function toggleMusic() {
+            if (audio.paused) { audio.play(); document.getElementById('music-btn').innerText = "🔊"; } 
+            else { audio.pause(); document.getElementById('music-btn').innerText = "🔇"; }
+        }
+
+        function spawnTrail(e) {
+            const star = document.createElement('div');
+            star.className = 'tap-emoji';
+            star.innerHTML = '✦';
+            star.style.left = e.clientX + 'px';
+            star.style.top = e.clientY + 'px';
+            document.body.appendChild(star);
+            setTimeout(() => star.remove(), 1000);
+        }
+
+        let scene, camera, renderer, starSystem;
+        function initUniverse() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 2000);
+            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('webgl-canvas'), antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            const geo = new THREE.BufferGeometry();
+            const pos = [];
+            for(let i=0; i<15000; i++) pos.push((Math.random()-0.5)*1500, (Math.random()-0.5)*1500, (Math.random()-0.5)*1500);
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+            starSystem = new THREE.Points(geo, new THREE.PointsMaterial({ size: 1.5, color: 0xffffff, transparent: true, opacity: 0.4 }));
+            scene.add(starSystem);
+            camera.position.z = 500;
+            function animate() { requestAnimationFrame(animate); starSystem.rotation.y += 0.0004; renderer.render(scene, camera); }
+            animate();
+        }
+
+        let currentSection = 1;
+        const phrases = ["TOUCH MY HEART 🫰", "LOOK AT YOU... ✨", "WANT MORE? 🌙", "ALMOST THERE 🌸", "MY MOON 🌙", "ONE LAST THING... 💖", "READY? 🫰"];
+
+        function advanceUniverse() {
+            if(currentSection >= 7) return;
+            const out = document.getElementById(`p${currentSection}`);
+            currentSection++;
+            const enter = document.getElementById(`p${currentSection}`);
+            const navText = document.getElementById('nav-text');
+
+            gsap.to(navText, { opacity: 0, duration: 0.2, onComplete: () => {
+                navText.innerText = phrases[currentSection - 1] || "🫰";
+                gsap.to(navText, { opacity: 1 });
+            }});
+
+            gsap.to(out, { opacity: 0, scale: 0.8, filter: "blur(20px)", duration: 0.7, onComplete: () => out.classList.remove('section-active') });
+            enter.classList.add('section-active');
+            gsap.fromTo(enter, { opacity: 0, scale: 1.5, filter: "blur(20px)" }, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 1 });
+            if(currentSection === 7) gsap.to("#nav-ring", { opacity: 0, pointerEvents: 'none' });
+        }
+
+        const portal = document.getElementById('portal');
+        const wave = document.getElementById('wave');
+        let progress = 0;
+        function startHold(e) {
+            e.preventDefault();
+            let holdTimer = setInterval(() => {
+                progress += 1.5;
+                wave.style.height = progress + "%";
+                if(progress >= 100) { clearInterval(holdTimer); finalizeUniverse(); }
+            }, 30);
+            portal.onpointerup = () => { clearInterval(holdTimer); if(progress < 100) { progress = 0; wave.style.height = "0%"; } };
+        }
+
+        function finalizeUniverse() {
+            gsap.to("#p7", { opacity: 0, scale: 0, duration: 0.8 });
+            setTimeout(() => {
+                const p8 = document.getElementById('p8');
+                p8.classList.add('section-active');
+                gsap.fromTo(p8, { opacity: 0, scale: 3 }, { opacity: 1, scale: 1, duration: 1.5 });
+                confetti({ particleCount: 500, spread: 120, origin: { y: 0.6 } });
+            }, 800);
+        }
+
+        portal.addEventListener('pointerdown', startHold);
+        initUniverse();
+    </script>
+</body>
+</html>
